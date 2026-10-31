@@ -1,0 +1,269 @@
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Il codice dei tre sapienti</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#17121e;color:#fff;font-family:Georgia,serif}
+header{padding:14px;text-align:center;background:#241a2c}
+h1{font-size:clamp(20px,4vw,32px);margin:4px;color:#e8c77a}
+header p{margin:5px;font-size:14px}
+#game{height:65vh;min-height:390px;position:relative}
+canvas{display:block;width:100%;height:100%}
+#panel{padding:16px;background:#241a2c;min-height:190px}
+#panel h2{color:#e8c77a;margin:0 0 8px}
+#panel p{line-height:1.5}
+button{background:#b58b45;color:#1c1420;border:0;border-radius:8px;padding:11px 15px;margin:5px;font-weight:bold;font-size:15px}
+button:disabled{opacity:.4}
+#answers{display:flex;flex-wrap:wrap;gap:5px}
+#status{color:#e8c77a;font-size:14px}
+.hint{font-size:13px;color:#d4c7b3}
+</style>
+</head>
+<body>
+<header>
+<h1>IL CODICE DEI TRE SAPIENTI</h1>
+<p>Una biblioteca, tre filosofi e un segreto da scoprire</p>
+<div id="status">Indizi trovati: 0/3 · Punteggio: 0</div>
+</header>
+<div id="game"></div>
+<section id="panel">
+<h2 id="title">La biblioteca dei sapienti</h2>
+<p id="message">Benvenuto, viaggiatore! La porta della biblioteca è chiusa. Esplora la stanza, avvicinati ai tre filosofi e scopri i loro segreti. Clicca sugli oggetti per interagire.</p>
+<div id="answers"></div>
+<p class="hint">Puoi trascinare la scena per guardarti intorno. Tocca personaggi e oggetti per esplorarli.</p>
+</section>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import {OrbitControls} from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+
+const host=document.getElementById('game');
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x17121e);
+scene.fog=new THREE.Fog(0x17121e,18,35);
+
+const camera=new THREE.PerspectiveCamera(55,host.clientWidth/host.clientHeight,.1,100);
+camera.position.set(0,5,12);
+
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(host.clientWidth,host.clientHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+host.appendChild(renderer.domElement);
+
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;
+controls.target.set(0,2,0);
+controls.maxPolarAngle=Math.PI*.48;
+controls.minDistance=6;
+controls.maxDistance=19;
+
+scene.add(new THREE.HemisphereLight(0xffe4bd,0x35243c,2));
+const lamp=new THREE.PointLight(0xffc66d,55,25);
+lamp.position.set(0,8,1);
+lamp.castShadow=true;
+scene.add(lamp);
+
+function box(name,x,y,z,sx,sy,sz,color){
+ const mesh=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),new THREE.MeshStandardMaterial({color,roughness:.8}));
+ mesh.position.set(x,y,z);
+ mesh.castShadow=true;mesh.receiveShadow=true;
+ mesh.userData.label=name;
+ scene.add(mesh);
+ return mesh;
+}
+function sphere(name,x,y,z,r,color){
+ const mesh=new THREE.Mesh(new THREE.SphereGeometry(r,24,16),new THREE.MeshStandardMaterial({color,roughness:.8}));
+ mesh.position.set(x,y,z);mesh.castShadow=true;
+ mesh.userData.label=name;scene.add(mesh);return mesh;
+}
+
+// pavimento e pareti
+box('Pavimento',0,-.25,0,22,.5,18,0x493747);
+box('Parete di fondo',0,4,-8,22,8,.4,0x34283a);
+box('Parete sinistra',-11,4,0,.4,8,16,0x292235);
+box('Parete destra',11,4,0,.4,8,16,0x292235);
+
+// scaffali
+for(let x of [-8,-5,5,8]){
+ box('Scaffale',x,3,-7,2.3,5.8,.7,0x70472e);
+ for(let y of [1.3,2.7,4.1,5.5]){
+  box('Mensola',x,y,-6.55,2.2,.13,.8,0xb18a56);
+  for(let i=0;i<5;i++){
+   const colors=[0x9b443c,0x315c65,0xc39b4b,0x526344,0x654c79];
+   box('Libro antico',x-.85+i*.42,y+.38,-6.65,.3,.65,.35,colors[(i+Math.round(x)+10)%5]);
+  }
+ }
+}
+
+// tavolo centrale
+box('Tavolo antico',0,1.3,1,4.5,.3,2.3,0x805333);
+for(let x of [-1.8,1.8])for(let z of [.2,1.8])box('Gamba del tavolo',x,.55,z,.22,1.3,.22,0x583823);
+
+// porta
+box('Porta misteriosa',0,2.6,-7.72,2.5,5,.2,0x9b713d);
+box('Maniglia',.8,2.5,-7.55,.12,.35,.12,0xe5c36d);
+
+// personaggi
+function philosopher(name,x,color,robeColor){
+ const group=new THREE.Group();
+ const robe=new THREE.Mesh(new THREE.CylinderGeometry(.48,.75,2,24),new THREE.MeshStandardMaterial({color:robeColor}));
+ robe.position.y=1;group.add(robe);
+ const head=new THREE.Mesh(new THREE.SphereGeometry(.43,24,20),new THREE.MeshStandardMaterial({color:0xd7a77c}));
+ head.position.y=2.35;group.add(head);
+ const hair=new THREE.Mesh(new THREE.SphereGeometry(.46,20,12,0,Math.PI*2,0,Math.PI*.55),new THREE.MeshStandardMaterial({color:0x493326}));
+ hair.position.y=2.52;group.add(hair);
+ const label=new THREE.Mesh(new THREE.BoxGeometry(1.8,.35,.08),new THREE.MeshBasicMaterial({color:0x21192a}));
+ label.position.set(0,3.1,0);group.add(label);
+ group.position.set(x,0,-1);
+ group.userData.label=name;
+ group.traverse(o=>{if(o.isMesh){o.castShadow=true;o.userData.label=name;}});
+ scene.add(group);
+ return group;
+}
+philosopher('Bernardino Telesio',-6,0xffffff,0x7c3d32);
+philosopher('Giordano Bruno',0,0xffffff,0x31566a);
+philosopher('Tommaso Campanella',6,0xffffff,0x65513d);
+
+// oggetti interattivi
+const globe=sphere('Il globo terrestre',-2,2,1, .65,0x4b8b9b);
+const book=box('Il libro misterioso',2,1.65,1,.8,.15,.6,0xc69b43);
+const feather=box('La penna del sapere',0,1.8,2.3,.12,.9,.12,0xe4d3a5);
+feather.rotation.z=.5;
+
+const raycaster=new THREE.Raycaster();
+const pointer=new THREE.Vector2();
+let clues=0,score=0;
+let completed={};
+let finalOpen=false;
+
+const title=document.getElementById('title');
+const message=document.getElementById('message');
+const answers=document.getElementById('answers');
+const status=document.getElementById('status');
+
+function updateStatus(){
+ status.textContent=`Indizi trovati: ${clues}/3 · Punteggio: ${score}`;
+}
+function show(name,description,question,options,correct,explanation,digit){
+ title.textContent=name;
+ message.textContent=description+' '+question;
+ answers.innerHTML='';
+ options.forEach((option,i)=>{
+  const b=document.createElement('button');
+  b.textContent=option;
+  b.onclick=()=>{
+   answers.innerHTML='';
+   if(i===correct){
+    if(!completed[name]){
+     completed[name]=true;clues++;score+=10;
+    }
+    message.textContent='Esatto! '+explanation+(digit?' Il tuo indizio è: '+digit+'.':'');
+    updateStatus();
+   }else{
+    message.textContent='Non proprio! '+explanation+' Riprova a riflettere.';
+    options.forEach((o,j)=>{
+     const retry=document.createElement('button');
+     retry.textContent=o;
+     retry.onclick=()=>show(name,description,question,options,correct,explanation,digit);
+     answers.appendChild(retry);
+    });
+   }
+   if(clues===3){
+    const b=document.createElement('button');
+    b.textContent='Prova ad aprire la porta';
+    b.onclick=doorPuzzle;
+    answers.appendChild(b);
+   }
+  };
+  answers.appendChild(b);
+ });
+}
+
+function doorPuzzle(){
+ title.textContent='La porta dei tre sapienti';
+ message.textContent='Hai raccolto tre indizi. Qual è il codice finale?';
+ answers.innerHTML='';
+ const input=document.createElement('input');
+ input.placeholder='Inserisci il codice';
+ input.inputMode='numeric';
+ input.maxLength=3;
+ input.style.padding='12px';
+ input.style.width='130px';
+ answers.appendChild(input);
+ const b=document.createElement('button');
+ b.textContent='Apri la porta';
+ b.onclick=()=>{
+  if(input.value==='317'){
+   title.textContent='LA BIBLIOTECA È SALVA!';
+   message.textContent='Complimenti! Hai risolto gli enigmi dei tre sapienti e hai scoperto il codice segreto. La conoscenza è la vera chiave della libertà.';
+   answers.innerHTML='<strong>MISSIONE COMPLETATA · '+score+' PUNTI</strong>';
+   finalOpen=true;
+  }else{
+   message.textContent='Codice errato. Ricorda gli indizi: Telesio, Bruno e Campanella.';
+  }
+ };
+ answers.appendChild(b);
+}
+
+function interact(name){
+ if(name==='Bernardino Telesio'){
+  show(name,'Telesio fu un filosofo del Rinascimento, nato a Cosenza.','Quale elemento ebbe un ruolo centrale nella sua filosofia?', ['L’esperienza della natura','La magia','La sola matematica'],0,'Telesio sosteneva che la natura dovesse essere studiata secondo i suoi principi e attraverso l’esperienza.', '3');
+ }else if(name==='Giordano Bruno'){
+  show(name,'Bruno fu un filosofo del Rinascimento, sostenitore dell’infinità dell’universo.','Come concepiva l’universo?', ['Finito e immobile','Infinito e composto da infiniti mondi','Creato attorno alla Terra'],1,'Bruno difese l’idea di un universo infinito e di una pluralità di mondi.', '1');
+ }else if(name==='Tommaso Campanella'){
+  show(name,'Campanella fu un filosofo e frate domenicano, autore della Città del Sole.','Quale opera descrive una società ideale?', ['Il Principe','La Città del Sole','De rerum natura'],1,'La Città del Sole presenta una comunità ideale organizzata secondo ragione e sapere.', '7');
+ }else if(name==='Il globo terrestre'){
+  show(name,'Un globo al centro della biblioteca.','Quale atteggiamento è importante per studiare la natura?', ['Osservare e interrogarsi','Accettare tutto senza dubbi','Evitare le domande'],0,'La conoscenza nasce anche dall’osservazione e dalla ricerca.');
+ }else if(name==='Il libro misterioso'){
+  show(name,'Un antico volume è rimasto aperto sul tavolo.','In quale periodo vissero questi filosofi?', ['Medioevo','Rinascimento','Età contemporanea'],1,'Telesio, Bruno e Campanella appartengono alla cultura filosofica del Rinascimento.');
+ }else if(name==='La penna del sapere'){
+  show(name,'Una penna sembra indicare una frase sul tavolo.','Che cosa accomuna questi tre pensatori?', ['La riflessione sulla natura e sulla società','La rinuncia allo studio','L’interesse esclusivo per la guerra'],0,'Tutti e tre contribuirono al dibattito filosofico del loro tempo.');
+ }else if(name==='Porta misteriosa'||name==='Maniglia'){
+  if(clues===3)doorPuzzle();
+  else{
+   title.textContent='La porta è chiusa';
+   message.textContent='Prima devi trovare i tre indizi parlando con tutti i filosofi.';
+   answers.innerHTML='';
+  }
+ }else{
+  title.textContent=name;
+  message.textContent='Osserva questo elemento della biblioteca e continua la tua esplorazione.';
+  answers.innerHTML='';
+ }
+}
+
+renderer.domElement.addEventListener('pointerdown',event=>{
+ const rect=renderer.domElement.getBoundingClientRect();
+ pointer.x=((event.clientX-rect.left)/rect.width)*2-1;
+ pointer.y=-((event.clientY-rect.top)/rect.height)*2+1;
+ raycaster.setFromCamera(pointer,camera);
+ const hits=raycaster.intersectObjects(scene.children,true);
+ if(hits.length){
+  let obj=hits[0].object;
+  while(obj&&!obj.userData.label)obj=obj.parent;
+  if(obj&&obj.userData.label)interact(obj.userData.label);
+ }
+});
+
+function animate(){
+ requestAnimationFrame(animate);
+ controls.update();
+ const t=performance.now()*.001;
+ globe.rotation.y=t*.35;
+ renderer.render(scene,camera);
+}
+animate();
+
+window.addEventListener('resize',()=>{
+ camera.aspect=host.clientWidth/host.clientHeight;
+ camera.updateProjectionMatrix();
+ renderer.setSize(host.clientWidth,host.clientHeight);
+});
+</script>
+</body>
+</html>
