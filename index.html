@@ -64,7 +64,8 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
 renderer.shadowMap.enabled=true;
 host.appendChild(renderer.domElement);
 
-const controls=new THREE.OrbitControls(camera,renderer.domElement);
+const controls={target:new THREE.Vector3(0,2,0),update:function(){}};
+camera.lookAt(0,2,0);
 controls.enableDamping=true;
 controls.target.set(0,2,0);
 controls.maxPolarAngle=Math.PI*.48;
